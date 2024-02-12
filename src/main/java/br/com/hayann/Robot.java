@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,7 @@ public class Robot {
 	private final String REGEX_PROCURA_EVENTO = "\\(\\{\"id\":(\\d+),\"titulo\":\"(.+)\"}\\);";
 	private final String REGEX_PROCURA_PARTICIPANTE_1 = "<a href=\"(https:\\/\\/sites.pucgoias.edu.br\\/certificados\\/ver\\/[a-zA-Z0-9]+)\">(";
 	private final String REGEX_PROCURA_PARTICIPANTE_2 = ".+?)<\\/a>";
-	private final String nomeParticipante = "HAYANN GON.ALVES";
+	private final String NOME_PARTICIPANTE = "HAYANN GON.ALVES";
 
 	public void run() throws IOException {
 		List<Evento> eventoList = new ArrayList<>();
@@ -28,7 +29,7 @@ public class Robot {
 		int contTotalEventos = 0;
 
 		URL urlEvento = new URL(LINK_PAGINA_EVENTO);
-		BufferedReader readerEvento = new BufferedReader(new InputStreamReader(urlEvento.openStream()));
+		BufferedReader readerEvento = forceRead(urlEvento);
 
 		String lineEvento;
 		while ((lineEvento = readerEvento.readLine()) != null) { //lê linha por linha para procurar ocorrência de eventos
@@ -38,28 +39,25 @@ public class Robot {
 			if (matcherEvento.find()) {
 				contTotalEventos++;
 
-				Evento evento = null;
-
 				Integer idEvento = Integer.parseInt(matcherEvento.group(1));
 				String tituloEvento = matcherEvento.group(2);
 
-				URL urlParticipante = new URL(LINK_PAGINA_PARTICIPANTE + idEvento);
-				BufferedReader readerParticipante = new BufferedReader(new InputStreamReader(urlParticipante.openStream()));
+				URL urlPaginaParticipante = new URL(LINK_PAGINA_PARTICIPANTE + idEvento);
+				BufferedReader readerPaginaParticipante = forceRead(urlPaginaParticipante);
 
+				Evento evento;
 				String lineParticipante;
-				while ((lineParticipante = readerParticipante.readLine()) != null) { //lê linha por linha para procurar linha dos participantes
-					Pattern patternParticipante = Pattern.compile(REGEX_PROCURA_PARTICIPANTE_1 + nomeParticipante + REGEX_PROCURA_PARTICIPANTE_2);
+				while ((lineParticipante = readerPaginaParticipante.readLine()) != null) { //lê linha por linha para procurar linha dos participantes
+					Pattern patternParticipante = Pattern.compile(REGEX_PROCURA_PARTICIPANTE_1 + NOME_PARTICIPANTE + REGEX_PROCURA_PARTICIPANTE_2, Pattern.CASE_INSENSITIVE);
 					Matcher matcherParticipante = patternParticipante.matcher(lineParticipante);
 
-					if (matcherParticipante.find()) {
+					while (matcherParticipante.find()) {
 						evento = new Evento(idEvento, tituloEvento, matcherParticipante.group(1));
 						eventoList.add(evento);
 						System.out.println(evento);
 					}
-					if (evento != null)
-						break;
 				}
-				readerParticipante.close();
+				readerPaginaParticipante.close();
 			}
 		}
 		readerEvento.close();
@@ -71,6 +69,18 @@ public class Robot {
 				"Duração total: " + duration + "\n" +
 				"Quantidade de eventos: " + contTotalEventos + "\n" +
 				"Quantidade de certificados encontrados: " + eventoList.size());
+	}
 
+	private BufferedReader forceRead(URL url) {
+		BufferedReader bufferedReader = null;
+		try {
+			while (bufferedReader == null) {
+				bufferedReader = new BufferedReader(new InputStreamReader(url.openStream()));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return forceRead(url);
+		}
+		return bufferedReader;
 	}
 }
